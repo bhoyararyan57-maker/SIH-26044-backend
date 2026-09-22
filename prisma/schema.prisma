@@ -1,0 +1,127 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  COMPANY
+  ADMIN
+}
+
+enum ApplicationStatus {
+  APPLIED
+  REVIEWING
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentProfile        StudentProfile?
+  companyProfile        CompanyProfile?
+  assessmentSubmissions AssessmentSubmission[]
+}
+
+model StudentProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName       String
+  major          String
+  gpa            Float
+  skills         String[]
+  bio            String?
+  targetIndustry String?
+
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyProfile {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  industry    String
+  jobs        JobPosting[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobPosting {
+  id        String         @id @default(uuid())
+  companyId String
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  title          String
+  description    String
+  requiredSkills String[]
+  minGpa         Float    @default(0.0)
+  location       String
+  status         String   @default("OPEN")
+
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Application {
+  id        String            @id @default(uuid())
+  studentId String
+  jobId     String
+  resumeUrl String?
+  coverNote String?
+  status    ApplicationStatus @default(APPLIED)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  student StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  job     JobPosting     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, jobId])
+  @@index([studentId])
+  @@index([jobId])
+}
+
+model Assessment {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  questions   Json
+  createdAt   DateTime @default(now())
+
+  submissions AssessmentSubmission[]
+}
+
+model AssessmentSubmission {
+  id           String   @id @default(uuid())
+  assessmentId String
+  userId       String
+  answers      Json
+  score        Float?
+  maxScore     Float?
+  submittedAt  DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, userId])
+  @@index([assessmentId])
+  @@index([userId])
+}
